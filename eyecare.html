@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>护眼小卫士 · 用眼行为监测</title>
+<style>
+  :root{
+    --bg:#eef4f8; --panel:#ffffff; --line:#d9e4ec;
+    --teal:#0E8E9C; --teal-d:#0A6E79; --ink:#1f3a44; --muted:#6c8390;
+    --ok:#1E9E5B; --ok-bg:#e6f6ec; --warn:#E0922B; --warn-bg:#fdf1df; --danger:#DC4034; --danger-bg:#fbe6e3;
+    --shadow:0 2px 10px rgba(16,90,105,.08);
+  }
+  *{box-sizing:border-box;font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}
+  body{margin:0;background:var(--bg);color:var(--ink);}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px 18px 40px;}
+  header.app{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+  .logo{width:38px;height:38px;color:var(--teal);flex:none;}
+  header.app h1{font-size:21px;margin:0;color:var(--teal-d);letter-spacing:1px;}
+  header.app .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .privacy{font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;margin:12px 0;box-shadow:var(--shadow);}
+
+  /* 综合疲劳面板 */
+  .overall{background:linear-gradient(135deg,#0E8E9C,#0A6E79);color:#fff;border-radius:16px;
+    padding:18px 22px;display:flex;align-items:center;gap:22px;box-shadow:var(--shadow);flex-wrap:wrap;}
+  .gauge{display:flex;align-items:baseline;gap:6px;}
+  .gauge .num{font-size:54px;font-weight:800;line-height:1;}
+  .gauge .unit{font-size:18px;opacity:.85;}
+  .gauge .cap{font-size:13px;opacity:.85;margin-top:4px;}
+  .overall .meta{flex:1;min-width:200px;}
+  .level-badge{display:inline-block;padding:5px 14px;border-radius:999px;font-size:15px;font-weight:700;margin-bottom:10px;}
+  .lb-normal{background:var(--ok-bg);color:var(--ok);}
+  .lb-warn{background:var(--warn-bg);color:var(--warn);}
+  .lb-mid{background:#fde2cf;color:#C2541B;}
+  .lb-severe{background:#fbd0c9;color:var(--danger);}
+
+  .overall-alert{margin-top:14px;border-radius:12px;padding:14px 16px;font-size:15px;line-height:1.5;
+    background:rgba(255,255,255,.16);}
+  .alert-ok{background:var(--ok-bg);color:var(--ok);border-left:5px solid var(--ok);}
+  .alert-warn{background:var(--warn-bg);color:#9a6400;border-left:5px solid var(--warn);font-weight:600;}
+  .alert-danger{background:var(--danger);color:#fff;border-left:5px solid #8E2C24;font-weight:700;
+    animation:pulse 1.5s ease-in-out infinite;font-size:16px;}
+  .alert-danger .tri{display:inline-block;width:0;height:0;margin-right:9px;vertical-align:middle;
+    border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:13px solid #fff;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,64,52,.45);}50%{box-shadow:0 0 0 8px rgba(220,64,52,0);}}
+
+  /* 指标网格 */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-top:16px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .card-head .name{font-size:15px;font-weight:700;color:var(--ink);}
+  .metric-lv{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;}
+  .lv-normal{background:var(--ok-bg);color:var(--ok);}
+  .lv-warn{background:var(--warn-bg);color:var(--warn);}
+  .lv-danger{background:var(--danger-bg);color:var(--danger);}
+  .val{font-size:30px;font-weight:800;color:var(--teal-d);margin:2px 0 8px;}
+  .val small{font-size:14px;color:var(--muted);font-weight:600;margin-left:4px;}
+
+  .bar{position:relative;height:11px;border-radius:6px;overflow:visible;
+    background:linear-gradient(to right,#1E9E5B 0%,#1E9E5B 33%,#E0922B 33%,#E0922B 66%,#DC4034 66%,#DC4034 100%);}
+  .mk{position:absolute;top:-5px;transform:translateX(-50%);width:0;height:0;
+    border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid #14323b;}
+
+  .legend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px;}
+  .legend b{display:block;color:var(--ink);font-weight:700;font-size:11px;margin-bottom:1px;}
+  .legend .z1 b{color:var(--ok);} .legend .z2 b{color:var(--warn);} .legend .z3 b{color:var(--danger);}
+  .desc{font-size:12px;color:var(--muted);line-height:1.55;margin-top:10px;border-top:1px dashed var(--line);padding-top:8px;}
+  .desc .norm{color:var(--ok);font-weight:700;}
+
+  .status{font-size:13px;color:var(--muted);margin-top:16px;background:var(--panel);border:1px solid var(--line);
+    border-radius:8px;padding:10px 14px;box-shadow:var(--shadow);min-height:20px;}
+  .status.err{color:var(--danger);font-weight:600;}
+  .btns{margin:14px 0 4px;display:flex;gap:10px;}
+  button{background:#fff;border:1px solid var(--teal);color:var(--teal-d);padding:9px 20px;border-radius:9px;
+    cursor:pointer;font-size:14px;font-weight:600;transition:.15s;}
+  button:hover{background:var(--teal);color:#fff;}
+  button:disabled{opacity:.45;cursor:not-allowed;background:#fff;color:var(--teal);}
+  .foot{font-size:11px;color:var(--muted);margin-top:18px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <svg class="logo" viewBox="0 0 24 24"><path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>
+    <div>
+      <h1>护眼小卫士</h1>
+      <div class="sub">用眼行为监测 · 本地实时分析（非医疗诊断）</div>
+    </div>
+  </header>
+
+  <div class="privacy">本页面仅在你的设备本地进行人脸与行为识别，<b>不会上传任何图像或视频</b>。结果仅用于用眼习惯提醒，不构成医学诊断。</div>
+
+  <div class="btns">
+    <button id="startBtn">开启摄像头</button>
+    <button id="stopBtn" disabled>停止监测</button>
+  </div>
+
+  <!-- 综合疲劳 -->
+  <section class="overall">
+    <div class="gauge">
+      <span class="num" id="vFatigue">—</span><span class="unit">/100</span>
+      <div class="cap">综合疲劳分</div>
+    </div>
+    <div class="meta">
+      <span class="level-badge lb-normal" id="vLevel">—</span>
+      <div class="overall-alert" id="overallAlert">等待开启摄像头…</div>
+    </div>
+  </section>
+
+  <!-- 实时画面预览 -->
+  <div class="card" style="margin-top:16px;max-width:360px;">
+    <div class="card-head"><span class="name">实时画面</span></div>
+    <video id="video" autoplay playsinline muted style="width:100%;border-radius:8px;background:#000;min-height:120px;"></video>
+  </div>
+
+  <!-- 指标卡 -->
+  <section class="grid">
+    <div class="card">
+      <div class="card-head"><span class="name">用眼距离指数</span><span class="metric-lv lv-normal" id="lv-eye">—</span></div>
+      <div class="val"><span id="val-eye">—</span><small>%</small></div>
+      <div class="bar"><span class="mk" id="mk-eye" style="left:0%"></span></div>
+      <div class="legend">
+        <span class="z1"><b>正常</b>≥36</span>
+        <span class="z2"><b>偏近</b>32–36</span>
+        <span class="z3"><b>过近</b>&lt;32</span>
+      </div>
+      <div class="desc">由双眼间距与脸部宽度的比例换算为距离指数（0–100），数值越小代表离屏幕越近。建议保持 36 以上（约等于 40cm 以上）。<span class="norm">正常范围：≥ 36</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="name">头部歪斜</span><span class="metric-lv lv-normal" id="lv-tilt">—</span></div>
+      <div class="val"><span id="val-tilt">—</span><small>度</small></div>
+      <div class="bar"><span class="mk" id="mk-tilt" style="left:0%"></span></div>
+      <div class="legend">
+        <span class="z1"><b>正常</b>0°–10°</span>
+        <span class="z2"><b>轻度</b>10°–20°</span>
+        <span class="z3"><b>明显</b>&gt;20°</span>
+      </div>
+      <div class="desc">检测头部相对竖直方向的倾斜角。长期歪头用眼易致颈肩与单侧眼肌疲劳。<span class="norm">正常范围：0°–10°</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="name">眨眼频率</span><span class="metric-lv lv-normal" id="lv-blink">—</span></div>
+      <div class="val"><span id="val-blink">—</span><small>次/分</small></div>
+      <div class="bar"><span class="mk" id="mk-blink" style="left:0%"></span></div>
+      <div class="legend">
+        <span class="z1"><b>正常</b>&gt;12</span>
+        <span class="z2"><b>偏少</b>6–12</span>
+        <span class="z3"><b>过少</b>&lt;6</span>
+      </div>
+      <div class="desc">统计每分钟眨眼次数。长时间不眨眼会使泪膜破裂、眼睛干涩，成人正常约 15–20 次/分。<span class="norm">正常范围：&gt; 12 次/分</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="name">环境光照</span><span class="metric-lv lv-normal" id="lv-light">—</span></div>
+      <div class="val"><span id="val-light">—</span><small>%</small></div>
+      <div class="bar"><span class="mk" id="mk-light" style="left:0%"></span></div>
+      <div class="legend">
+        <span class="z1"><b>充足</b>≥60</span>
+        <span class="z2"><b>偏暗</b>30–60</span>
+        <span class="z3"><b>昏暗</b>&lt;30</span>
+      </div>
+      <div class="desc">通过画面亮度换算为光照强度（0–100）。光线过暗会迫使瞳孔放大、加重眼部调节负担。<span class="norm">正常范围：≥ 60</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="name">连续盯屏时长</span><span class="metric-lv lv-normal" id="lv-screen">—</span></div>
+      <div class="val"><span id="val-screen">—</span><small>分钟</small></div>
+      <div class="bar"><span class="mk" id="mk-screen" style="left:0%"></span></div>
+      <div class="legend">
+        <span class="z1"><b>正常</b>≤20</span>
+        <span class="z2"><b>偏久</b>20–40</span>
+        <span class="z3"><b>过久</b>&gt;40</span>
+      </div>
+      <div class="desc">自开启以来持续盯屏的时长。建议遵循 20-20-20 法则：每 20 分钟远眺 20 秒。<span class="norm">正常范围：≤ 20 分钟</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span class="name">综合疲劳等级</span><span class="metric-lv lv-normal" id="lv-overall">—</span></div>
+      <div class="val" style="color:var(--teal-d)"><span id="val-overall">—</span></div>
+      <div class="legend">
+        <span class="z1"><b>正常</b>&lt;30</span>
+        <span class="z2"><b>轻度</b>30–60</span>
+        <span class="z3"><b>中/重度</b>≥60</span>
+      </div>
+      <div class="desc">综合上述 5 项指标的加权评分（0–100）。分值越高，用眼疲劳风险越大。<span class="norm">正常：&lt; 30 分</span></div>
+    </div>
+  </section>
+
+  <div class="status" id="status">点击「开启摄像头」开始监测。</div>
+
+  <div class="foot">《护眼小卫士》· 华为 ICT 大赛创新赛 W2 原型 · 行为识别由 MediaPipe Tasks Vision 本地运行</div>
+</div>
+
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "/vendor/tasksvision/vision_bundle.mjs";
+
+const video = document.getElementById("video");
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const statusEl = document.getElementById("status");
+const overallAlert = document.getElementById("overallAlert");
+
+let stream = null, landmarker = null, running = false, rafId = null, timerId = null, gotResult = false, lastVideoTime = -1;
+let blinkTimes = [], lastEyeOpen = true, screenStart = Date.now();
+
+// 显示平滑（指数移动平均）：alpha 越小，变化越缓、越不易闪烁
+const SMOOTH = { eyeRatio:0.08, tilt:0.08, light:0.05, blink:0.10, screen:0.05, fatigue:0.03 };
+let smooth = { eyeRatio:null, tilt:null, light:null, blink:null, screen:null, fatigue:null };
+function ema(key, val){
+  if (smooth[key] == null) smooth[key] = val;
+  else smooth[key] = smooth[key]*(1-SMOOTH[key]) + val*SMOOTH[key];
+  return smooth[key];
+}
+
+// GPU 模式状态（中断时自动降级为 CPU）；healing 防止重复自愈
+let gpuMode = true, healing = false;
+
+// 本地评分（与 fatigue_engine.py 同逻辑）
+function scoreLocal(f) {
+  const risks = {
+    eye_distance: Math.max(0, Math.min(1, 1 - f.eye_distance_level)),
+    head_tilt: Math.max(0, Math.min(1, f.head_tilt_deg / 30)),
+    blink: f.blink_per_min >= 12 ? 0 : Math.max(0, Math.min(1, (12 - f.blink_per_min) / 8)),
+    screen_time: f.screen_minutes <= 20 ? 0 : Math.max(0, Math.min(1, Math.log(f.screen_minutes/20)/Math.log(3))),
+    light: Math.max(0, Math.min(1, 1 - f.light_level)),
+  };
+  const w = { eye_distance:0.28, head_tilt:0.17, blink:0.20, screen_time:0.25, light:0.10 };
+  const fatigue = Object.keys(w).reduce((s,k)=>s+w[k]*risks[k],0)*100;
+  const tags = { eye_distance:"眼距过近", head_tilt:"头部歪斜", blink:"眨眼过少", screen_time:"连续盯屏过久", light:"光线不足" };
+  const hit = Object.keys(w).filter(k=>risks[k]>=0.5).map(k=>tags[k]);
+  let level = "正常";
+  if (fatigue>=80) level="重度疲劳"; else if(fatigue>=60) level="中度疲劳"; else if(fatigue>=30) level="轻度疲劳";
+  return { fatigue:Math.round(fatigue*10)/10, level, hit };
+}
+
+const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+function estimateLight(videoEl, canvas, ctx) {
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  const d = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  let s=0; for(let i=0;i<d.length;i+=4) s += (d[i]+d[i+1]+d[i+2])/3;
+  return Math.min(1, (s/(d.length/4))/180);
+}
+
+async function initLandmarker(forceCPU) {
+  const fileset = await FilesetResolver.forVisionTasks("/vendor/tasksvision/");
+  const modelPath = "/vendor/tasksvision/face_landmarker.task";
+  const delegate = forceCPU ? "CPU" : "GPU";
+  return FaceLandmarker.createFromOptions(fileset, {
+    baseOptions: { modelAssetPath: modelPath, delegate },
+    runningMode: "VIDEO", numFaces: 1,
+  });
+}
+
+async function requestCamera(timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("摄像头授权请求超时，请检查地址栏是否有摄像头图标未点击允许")), timeoutMs);
+    navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } })
+      .then(stream => { clearTimeout(t); resolve(stream); })
+      .catch(err => { clearTimeout(t); reject(err); });
+  });
+}
+
+async function waitForVideoReady(videoEl, timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    if (videoEl.readyState >= 2) { resolve(); return; }
+    const t = setTimeout(() => reject(new Error("视频画面未就绪，摄像头可能被其他程序占用")) , timeoutMs);
+    const handler = () => { clearTimeout(t); videoEl.removeEventListener("loadeddata", handler); resolve(); };
+    videoEl.addEventListener("loadeddata", handler);
+  });
+}
+
+async function main() {
+  try {
+    statusEl.className = "status";
+    statusEl.textContent = "⏳ 正在加载 AI 模型...";
+    startBtn.disabled = true;
+    if (!landmarker) {
+      try {
+        landmarker = await initLandmarker(false); // 优先 GPU 加速
+        gpuMode = true;
+      } catch (e) {
+        landmarker = await initLandmarker(true);  // GPU 不可用 → 自动用 CPU
+        gpuMode = false;
+      }
+      statusEl.textContent = "✅ 模型已就绪，正在请求摄像头权限...";
+    }
+
+    stream = await requestCamera(10000);
+    video.srcObject = stream;
+    await video.play();
+    await waitForVideoReady(video, 8000);
+
+    running = true;
+    gotResult = false;
+    smooth = { eyeRatio:null, tilt:null, light:null, blink:null, screen:null, fatigue:null };
+    startTicking();
+    statusEl.textContent = "● 实时监测中（画面不会离开本机）";
+    setTimeout(() => {
+      if (running && !gotResult) {
+        statusEl.textContent = "⚠ 30 秒内未检测到人脸关键点。请正对摄像头、保持光线充足，或按 F12 → Console 把红色报错发给我。";
+      }
+    }, 30000);
+  } catch (e) {
+    running = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    let msg = e && e.message ? e.message : String(e);
+    if (msg.includes("NotAllowedError") || msg.includes("Permission denied") || msg.includes("Permission dismissed")) {
+      msg = "摄像头权限被拒绝或未授权。请点地址栏的摄像头图标改为“允许”；或在浏览器设置 → 隐私和安全 → 摄像头中允许本网站。";
+    } else if (msg.includes("NotFoundError") || msg.includes("DevicesNotFound")) {
+      msg = "未找到摄像头。请确认摄像头物理开关已打开、未被 QQ/Teams/相机等程序占用。";
+    } else if (msg.includes("timeout") || msg.includes("超时")) {
+      msg += "（若地址栏无授权气泡，可能是浏览器/系统隐私设置把摄像头禁了。）";
+    }
+    statusEl.className = "status err";
+    statusEl.textContent = "⚠ 开启失败：" + msg;
+    console.error(e);
+  }
+}
+
+let errorCount = 0;
+
+// GPU 上下文丢失 / wasm 中断（如 Aborted）时：自动切换 CPU 模式重建模型并恢复。
+// 整个会话只自愈一次（gpuMode 降级后不再触发），避免失败死循环。
+async function healOnce() {
+  if (healing || !running || !gpuMode) return;
+  healing = true;
+  try {
+    statusEl.className = "status";
+    statusEl.textContent = "⚠ 检测中断，正在自动恢复（切换 CPU 模式）...";
+    if (landmarker && landmarker.close) { try { landmarker.close(); } catch (_) {} }
+    landmarker = null;
+    landmarker = await initLandmarker(true);
+    gpuMode = false;
+    errorCount = 0;
+    lastVideoTime = -1;
+    statusEl.textContent = "● 已自动恢复监测（CPU 模式）";
+  } catch (e2) {
+    running = false;
+    stopTicking();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusEl.className = "status err";
+    statusEl.textContent = "⚠ 自动恢复失败：" + (e2 && e2.message ? e2.message : String(e2)) + "，请刷新页面重试。";
+  }
+  healing = false;
+}
+
+// 单次检测（前台/后台共用，行为一致）
+async function tick() {
+  if (!running) return;
+  try {
+    const now = performance.now();
+    const videoReady = video.readyState >= 2 && video.videoWidth > 0;
+    if (videoReady && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      const results = landmarker.detectForVideo(video, now);
+      processResults(results);
+    }
+    errorCount = 0;
+  } catch (e) {
+    errorCount++;
+    console.error(e);
+    if (errorCount <= 3) { statusEl.className="status err"; statusEl.textContent = "⚠ 处理失败：" + (e && e.message ? e.message : String(e)); }
+    await healOnce();
+  }
+}
+
+// 调度：前台用 requestAnimationFrame（平滑实时）；后台切到定时器（约 1 次/秒），避免被浏览器完全暂停
+function scheduleNext() {
+  if (!running) return;
+  if (document.hidden) {
+    timerId = setTimeout(() => { tick(); scheduleNext(); }, 1000);
+  } else {
+    rafId = requestAnimationFrame(() => { tick(); scheduleNext(); });
+  }
+}
+function startTicking(){ rafId = null; timerId = null; scheduleNext(); }
+function stopTicking(){
+  if (rafId) cancelAnimationFrame(rafId);
+  if (timerId) clearTimeout(timerId);
+  rafId = null; timerId = null;
+}
+
+// 风险 → 等级徽标
+function riskClass(r){ return r>=0.66 ? "lv-danger" : r>=0.33 ? "lv-warn" : "lv-normal"; }
+function riskLabel(r){ return r>=0.66 ? "风险" : r>=0.33 ? "注意" : "正常"; }
+function setMetric(prefix, valueText, risk){
+  document.getElementById("val-"+prefix).textContent = valueText;
+  const badge = document.getElementById("lv-"+prefix);
+  badge.textContent = riskLabel(risk);
+  badge.className = "metric-lv " + riskClass(risk);
+  document.getElementById("mk-"+prefix).style.left = (risk*100) + "%";
+}
+
+function updateOverall(score, level, hit){
+  document.getElementById("vFatigue").textContent = Math.round(score);
+  document.getElementById("val-overall").textContent = level;
+  const lv = document.getElementById("vLevel");
+  const lvo = document.getElementById("lv-overall");
+  let lb;
+  if (level==="正常"){ lb="lb-normal"; lvo.textContent="正常"; }
+  else if (level==="轻度疲劳"){ lb="lb-warn"; lvo.textContent="轻度"; }
+  else if (level==="中度疲劳"){ lb="lb-mid"; lvo.textContent="中度"; }
+  else { lb="lb-severe"; lvo.textContent="重度"; }
+  lv.className = "level-badge " + lb;
+  lv.textContent = level;
+  lvo.className = "metric-lv " + (level==="正常"?"lv-normal":level==="轻度疲劳"?"lv-warn":"lv-danger");
+
+  let cls, text;
+  if (level==="正常"){
+    cls="alert-ok"; text="用眼状态良好，继续保持科学用眼习惯。";
+  } else if (level==="轻度疲劳"){
+    cls="alert-warn"; text="轻度疲劳提醒：建议稍作休息，远眺或闭目 20 秒；" + (hit.length?("重点注意："+hit.join("、")):"");
+  } else if (level==="中度疲劳"){
+    cls="alert-danger"; text="中度疲劳警告：眼部负荷偏高！请立即休息，遵循 20-20-20 法则，必要时离开屏幕。" + (hit.length?(" 重点注意："+hit.join("、")):"");
+  } else {
+    cls="alert-danger"; text="重度疲劳警告：用眼负荷已达高危！请马上停止用眼、闭眼休息并活动颈肩，避免视力进一步受损。" + (hit.length?(" 重点注意："+hit.join("、")):"");
+  }
+  overallAlert.className = "overall-alert " + cls;
+  overallAlert.innerHTML = (cls==="alert-danger" ? '<span class="tri"></span>' : '') + '<span>'+text+'</span>';
+}
+
+function processResults(results) {
+  gotResult = true;
+  if (!results.faceLandmarks || !results.faceLandmarks.length) {
+    statusEl.className = "status";
+    statusEl.textContent = "⏳ 摄像头画面中暂未检测到人脸，请正对摄像头...";
+    return;
+  }
+  const lm = results.faceLandmarks[0];
+  const L = (i)=>({x:lm[i].x, y:lm[i].y});
+  const leftEye = L(33), rightEye = L(263);
+  const nose = L(1), leftCheek = L(234), rightCheek = L(454);
+
+  const eyeDist = dist(leftEye, rightEye);
+  const faceWidth = dist(leftCheek, rightCheek);
+  const eyeRatio = eyeDist / faceWidth;
+  const eyeLevel = Math.max(0, Math.min(1, (eyeRatio - 0.28) / (0.40 - 0.28)));
+
+  const midEye = { x:(leftEye.x+rightEye.x)/2, y:(leftEye.y+rightEye.y)/2 };
+  const tiltDeg = Math.abs(Math.atan2(nose.y-midEye.y, nose.x-midEye.x)*180/Math.PI - 90);
+
+  const upperL = L(159), lowerL = L(145);
+  const eyeOpen = dist(upperL, lowerL);
+  const isOpen = eyeOpen > 0.015;
+  if (lastEyeOpen && !isOpen) blinkTimes.push(Date.now());
+  lastEyeOpen = isOpen;
+  const now = Date.now();
+  blinkTimes = blinkTimes.filter(t => now - t < 60000);
+  const blinkPerMin = blinkTimes.length;
+
+  const canvas = document.createElement("canvas");
+  canvas.width=640; canvas.height=480;
+  const ctx = canvas.getContext("2d");
+  const light = estimateLight(video, canvas, ctx);
+
+  const screenMinutes = (now - screenStart) / 60000;
+  // 平滑（指数移动平均），避免数值闪烁跳动
+  const dEye = ema("eyeRatio", eyeRatio);
+  const dTilt = ema("tilt", tiltDeg);
+  const dLight = ema("light", light);
+  const dBlink = ema("blink", blinkPerMin);
+  const dScreen = ema("screen", screenMinutes);
+
+  const eyeLevelS = Math.max(0, Math.min(1, (dEye - 0.28) / (0.40 - 0.28)));
+  const f = { eye_distance_level: eyeLevelS, head_tilt_deg: dTilt,
+              blink_per_min: dBlink, screen_minutes: dScreen, light_level: dLight };
+  const r = scoreLocal(f);
+
+  const riskEye = 1 - eyeLevelS;
+  const riskTilt = Math.max(0, Math.min(1, dTilt/30));
+  const riskBlink = dBlink >= 12 ? 0 : Math.max(0, Math.min(1,(12-dBlink)/8));
+  const riskLight = Math.max(0, Math.min(1, 1-dLight));
+  const riskScreen = dScreen <= 20 ? 0 : Math.max(0, Math.min(1, Math.log(dScreen/20)/Math.log(3)));
+
+  // 综合疲劳分额外再平滑一层，让大数字变化更缓
+  const sFatigue = ema("fatigue", r.fatigue);
+  let levelS = "正常";
+  if (sFatigue>=80) levelS="重度疲劳"; else if(sFatigue>=60) levelS="中度疲劳"; else if(sFatigue>=30) levelS="轻度疲劳";
+
+  setMetric("eye", Math.round(dEye*100), riskEye);
+  setMetric("tilt", Math.round(dTilt), riskTilt);
+  setMetric("blink", Math.round(dBlink), riskBlink);
+  setMetric("light", Math.round(dLight*100), riskLight);
+  setMetric("screen", Math.round(dScreen), riskScreen);
+  updateOverall(sFatigue, levelS, r.hit);
+
+  statusEl.className = "status";
+  statusEl.textContent = "● 实时监测中（画面不会离开本机）";
+}
+
+startBtn.onclick = async () => { await main(); if(running){ startBtn.disabled=true; stopBtn.disabled=false; } };
+stopBtn.onclick = () => {
+  running = false;
+  stopTicking();
+  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  video.srcObject = null;
+  startBtn.disabled=false;
+  stopBtn.disabled=true;
+  statusEl.className="status";
+  statusEl.textContent = "已停止监测。";
+  overallAlert.className="overall-alert";
+  overallAlert.textContent="等待开启摄像头…";
+};
+
+// 前台/后台切换：后台仍持续监测（约 1 次/秒），切回前台恢复实时流畅
+document.addEventListener("visibilitychange", () => {
+  if (!running) return;
+  stopTicking();
+  startTicking();
+  statusEl.className = "status";
+  statusEl.textContent = document.hidden
+    ? "● 后台监测中（约 1 次/秒）— 可照常使用其他应用"
+    : "● 实时监测中（画面不会离开本机）";
+});
+</script>
+</body>
+</html>
