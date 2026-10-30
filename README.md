@@ -45,11 +45,16 @@ node tools/serve.mjs 8788   # 需本地有该脚本；或任意静态服务器
 
 ## 在线体验
 
-分享链接（转发务必带 `sharecode`，否则本地模型无法加载）：
+- **GitHub Pages（公开网页，推荐）**：
+  ```
+  https://aurora-whxy.github.io/eye-care-guardian/
+  ```
+  自动跳进主程序，无需 `sharecode`，全部资源随仓库托管。
 
-```
-https://eye-care-guardian-45559.app.workbuddy.host/?sharecode=WF3EGKITEQ
-```
+- **WorkBuddy 分享链接**（转发务必带 `sharecode`，否则本地模型无法加载）：
+  ```
+  https://eye-care-guardian-45559.app.workbuddy.host/?sharecode=WF3EGKITEQ
+  ```
 
 > 线上 wasm 可能回退到 CDN，请确保网络可访问 `cdn.jsdelivr.net`；大赛演示建议用上面的本地方式以保证离线可用。
 
