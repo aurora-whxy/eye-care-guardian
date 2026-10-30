@@ -688,16 +688,19 @@ async function initLandmarker(forceCPU) {
     fileset = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.12/wasm");
   }
   const delegate = forceCPU ? "CPU" : "GPU";
+  // 模型来源（每个都带 30s 超时兜底，任一可用即成功，顺序按“国内可用性 + 速度”排）：
+  // ① 同域本地模型：github.io 用相对路径正确命中子目录；分享/本地用绝对路径。最快且无外网依赖。
+  // ② jsDelivr 直连 GitHub 仓库镜像（cdn.jsdelivr.net/gh/...）：国内通常比 Google 友好，GitHub Pages 被限速时兜底。
+  // ③ Google 官方模型 CDN：最后兜底（国内可能被屏蔽，但作为保底，确保任何网络都有机会加载成功）。
+  const ghMirror = "https://cdn.jsdelivr.net/gh/aurora-whxy/eye-care-guardian@main/vendor/tasksvision/face_landmarker.task";
   const cdnModel = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-  // GitHub Pages 对大二进制（.task ~9MB）严重限速/stall，本地模型几乎下载不完，会永久卡在“加载模型”
-  // 导致摄像头打不开；因此在 github.io 上直接走 CDN 模型，跳过会卡死的本地文件。
   const onGitHubPages = location.hostname.endsWith("github.io");
   let models = [];
-  if (!onGitHubPages) {
-    models.push("./vendor/tasksvision/face_landmarker.task", "/vendor/tasksvision/face_landmarker.task");
-    if (sc) models.push("/vendor/tasksvision/face_landmarker.task?sharecode=" + sc); // 平台需要的带 sharecode 本地路径
-  }
-  models.push(cdnModel); // 兜底：公开模型 CDN
+  models.push("./vendor/tasksvision/face_landmarker.task");                   // 同域相对路径（github.io 子目录也能命中）
+  if (sc) models.push("./vendor/tasksvision/face_landmarker.task?sharecode=" + sc); // 平台带 sharecode 的本地路径
+  if (!onGitHubPages) models.push("/vendor/tasksvision/face_landmarker.task");       // 根域部署才可用的绝对路径
+  models.push(ghMirror);   // 国内友好的镜像兜底
+  models.push(cdnModel);   // 官方 CDN 最后兜底
   let lastErr = null;
   for (const m of models) {
     try {
