@@ -689,15 +689,22 @@ async function initLandmarker(forceCPU) {
   }
   const delegate = forceCPU ? "CPU" : "GPU";
   const cdnModel = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-  // 模型：先试 page 同级的 vendor，再试站点根目录，最后才是公开模型
-  const models = ["./vendor/tasksvision/face_landmarker.task", "/vendor/tasksvision/face_landmarker.task", cdnModel];
-  if (sc) models.splice(2, 0, "/vendor/tasksvision/face_landmarker.task?sharecode=" + sc);
+  // GitHub Pages 对大二进制（.task ~9MB）严重限速/stall，本地模型几乎下载不完，会永久卡在“加载模型”
+  // 导致摄像头打不开；因此在 github.io 上直接走 CDN 模型，跳过会卡死的本地文件。
+  const onGitHubPages = location.hostname.endsWith("github.io");
+  let models = [];
+  if (!onGitHubPages) {
+    models.push("./vendor/tasksvision/face_landmarker.task", "/vendor/tasksvision/face_landmarker.task");
+    if (sc) models.push("/vendor/tasksvision/face_landmarker.task?sharecode=" + sc); // 平台需要的带 sharecode 本地路径
+  }
+  models.push(cdnModel); // 兜底：公开模型 CDN
   let lastErr = null;
   for (const m of models) {
     try {
-      return await FaceLandmarker.createFromOptions(fileset, {
+      // 每个来源都加超时，防止某个来源卡死导致永远打不开摄像头
+      return await withTimeout(FaceLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: m, delegate }, runningMode: "VIDEO", numFaces: 1,
-      });
+      }), 30000, "模型加载");
     } catch (e) {
       lastErr = e;
       console.warn("模型加载失败，换下一个来源：", m, e && e.message);
